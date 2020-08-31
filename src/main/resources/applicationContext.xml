@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+    <beans xmlns="http://www.springframework.org/schema/beans"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:context="http://www.springframework.org/schema/context" xmlns:tx="http://www.springframework.org/schema/tx"
+           xmlns:aop="http://www.springframework.org/schema/aop"
+           xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd">
+
+        <!--读取小配置文件 并获取其中的连接数据库参数-->
+        <context:property-placeholder location="jdbc.properties"></context:property-placeholder>
+
+        <!--配置数据源                     使用DBCP连接池     -->
+        <bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource">
+            <!--连接数据库的相关参数-->
+            <property name="driverClassName"  value="${driver}"></property>
+            <property name="url" value="${url}"></property>
+            <property name="username" value="${name}"></property>
+            <property name="password" value="${password}"></property>
+        </bean>
+
+
+
+        <!--配置Service的相关信息-->
+        <bean id="aService" class="com.baizhi.service.AServiceImpl">
+            <property name="bService" ref="bService"></property>
+        </bean>
+
+        <bean id="bService" class="com.baizhi.service.BServiceImpl"></bean>
+        <!--引入事务额外功能代码-->
+        <bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+            <!--控制事务需要连接  连接需要连接数据库的相关参数  -->
+            <property name="dataSource" ref="dataSource"></property>
+        </bean>
+        <!--描述事务对应的属性-->
+        <tx:advice id="dstm" transaction-manager="transactionManager">
+            <tx:attributes>
+                <!--propagation="REQUIRED" 外部有事务则融入外部事务中 外部没有则开启新的事务
+                                 SUPPORTS  外部有事务则融入到外部事务中 外部没有则不开启
+                                 REQUIRES_NEW  外部有事务则挂起外部的事务 开启新的事务
+                                 MANDATORY     外部必须有事务 没有事务则抛出异常
+                                 NOT_SUPPORTED  外部有事务 则外部事务挂起 内部不开启新的事务
+                                 NEVER          永远不能拥有事务  有事务则抛异常
+                                 NESTED         嵌套事务   先有数据库支持不是太好
+                -->
+                <tx:method name="modify*" propagation="REQUIRED"/>
+                <!--除了以modify开头的方法以外采用对应的属性值-->
+                <tx:method name="*" propagation="SUPPORTS" read-only="true"/>
+            </tx:attributes>
+        </tx:advice>
+        <!--定义切入点-->
+        <aop:config>
+            <!--给com.baizhi.service包下以及子包下的所有方法添加-->
+            <aop:pointcut id="pc" expression="execution(* com.baizhi.service..*.*(..))"></aop:pointcut>
+            <aop:advisor advice-ref="dstm" pointcut-ref="pc"></aop:advisor>
+        </aop:config>
+</beans>
